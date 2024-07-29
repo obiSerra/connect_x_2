@@ -1,0 +1,31 @@
+[build-system]
+# A list of packages that are needed to build your package:
+requires = ["setuptools"]  # REQUIRED if [build-system] table is used
+# The name of the Python object that frontends will use to perform the build:
+build-backend = "setuptools.build_meta"  # If not defined, then legacy behavior can happen.
+
+
+[project]
+name = "haier-barcode-tool"
+
+version = "0.0.1"  
+
+description = "ConnectX PPO"
+
+
+#readme = "README.md"
+
+requires-python = ">=3.9"
+
+
+authors = [
+  {name = "Roberto Serra", email = "obi.serra@gmail.com" }
+]
+dependencies = [
+]
+
+[project.scripts]
+#sample = "sample:main"
+
+
+[tool.setuptools]
