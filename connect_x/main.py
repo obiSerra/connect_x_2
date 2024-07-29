@@ -95,4 +95,12 @@ for epoch in range(epochs):
         agent.train(game_counts=1001)
 
 
-print_outcomes(get_outcomes(agent1=agent, agent2="random"))
+def test_agent(obs, config):
+    board=torch.Tensor(np.array(obs.board).reshape(1,-1))
+    action=agent.predict(board)
+    return action
+
+
+print("Agent vs Random")
+
+print_outcomes(get_outcomes(agent1=test_agent, agent2="random"))

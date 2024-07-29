@@ -120,16 +120,17 @@ class Agent(nn.Module):
                 action = np.random.choice(len(action_probs), p=action_probs)
                 board_2d = state.reshape(6, 7)
                 is_valid = any(board_2d[:, int(action)] == 0)
-                # if not is_valid:
-                #     action = random.choice(np.where(board_2d[0] == 0)[0])
 
-                next_state, reward, done, _ = self.env.step(action)
-
-                next_state = np.array(next_state["board"])
+                if is_valid:
+                    next_state, reward, done, _ = self.env.step(action)
+                    next_state = np.array(next_state["board"])
+                else:
+                    next_state = state
+                    reward = None
+                    done = True
 
                 if done:
                     if reward is None:
-                        logger.info("Invalid column")
                         reward = self.error_reward
                     elif reward == 1:
                         reward = self.win_reward
