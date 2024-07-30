@@ -30,7 +30,9 @@ RUN pip3 install torch torchvision torchaudio -f https://download.pytorch.org/wh
 RUN pip3 install numpy \
                 gymnasium \
                 wheel \
-                kaggle-environments
+                kaggle-environments \
+                tqdm \
+                tensorboard
 
 # COPY ./requirements.txt .
 COPY pyproject.toml ./pyproject.toml

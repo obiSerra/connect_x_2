@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from tqdm import tqdm
+
 
 import random
 
@@ -81,26 +83,36 @@ def agent_max_reward(obs, config):
     return int(max_reward_idx)
 
 
-# games=[['random',None],[None,"negamax"],[agent_max_reward,None],[None,'random'],["negamax",None],[None,agent_max_reward]]
-games = [["random", None]]
+def train_agent(agent, env, games, epochs=1, game_counts=1001, verbose=False):
+    for epoch in range(epochs):
+        random_number = np.arange(len(games))
+        np.random.shuffle(random_number)
+        for i in range(len(games)):
+            agent.env = env.train(games[random_number[i]])
+            agent.train(game_counts=1001, epoch_number=epoch, verbose=verbose)
 
-print(f"len(games):{len(games)}")
-agent = Agent()
-epochs = 1
-for epoch in range(epochs):
-    random_number = np.arange(len(games))
-    np.random.shuffle(random_number)
-    for i in range(len(games)):
-        agent.env = env.train(games[random_number[i]])
-        agent.train(game_counts=1001)
+def agent_factory(agent):
+    def agent_fn(obs, config):
+        board = torch.Tensor(np.array(obs.board).reshape(1, -1))
+        action = agent.predict(board)
+        return action
 
-
-def test_agent(obs, config):
-    board=torch.Tensor(np.array(obs.board).reshape(1,-1))
-    action=agent.predict(board)
-    return action
+    return agent_fn
 
 
-print("Agent vs Random")
+if __name__ == "__main__":
 
-print_outcomes(get_outcomes(agent1=test_agent, agent2="random"))
+    # games=[['random',None],[None,"negamax"],[agent_max_reward,None],[None,'random'],["negamax",None],[None,agent_max_reward]]
+    games = [["random", None]]
+
+    print(f"len(games):{len(games)}")
+    agent = Agent()
+    epochs = 5
+    agent = Agent()
+    train_agent(agent, env, games, epochs=epochs, game_counts=1001, verbose=False)
+
+    print("Agent vs Random")
+    test_agent = agent_factory(agent)
+    print_outcomes(get_outcomes(agent1=test_agent, agent2="random"))
+    print("Agent vs Agent")
+    print_outcomes(get_outcomes(agent1=test_agent, agent2=test_agent))

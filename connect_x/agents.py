@@ -4,6 +4,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
+
+writer = SummaryWriter()
+
 
 import random
 
@@ -73,6 +78,8 @@ class Agent(nn.Module):
         loss_reward=-2,
         error_reward=-100,
         clip_ratio=0.2,
+        discount=0.9,
+        lmbda=0.9,
     ):
         super(Agent, self).__init__()
         self.env = env
@@ -92,15 +99,24 @@ class Agent(nn.Module):
             self.valueagent.parameters(), lr=0.001, betas=(0.5, 0.999)
         )
 
-        self.discount = 0.9
-        self.lmbda = 0.9
+        self.discount = discount
+        self.lmbda = lmbda
 
-    def train(self, game_counts=1001, every=200, switch=False, run_steps=4, epochs=5):
+    def train(
+        self,
+        game_counts=1001,
+        every=100,
+        switch=False,
+        run_steps=4,
+        epochs=5,
+        epoch_number=0,
+        verbose=False,
+    ):
 
         logger.info("Training")
         total_rewards = []
 
-        for game_count in range(game_counts):
+        for game_count in tqdm(range(game_counts)):
 
             done = False
             states = []
@@ -223,23 +239,68 @@ class Agent(nn.Module):
             total_rewards.append(one_game_rewards[-1])
 
             if (game_count % every == 0) and (game_count):
-                print(f"game_count:{game_count}")
-                print(
-                    f"win_percent:{np.mean(np.array(total_rewards[game_count-every:game_count])==self.win_reward)}"
+                if verbose:
+                    print("-" * 30)
+                    print(f"game_count:{game_count}")
+
+                win_percent = np.mean(
+                    np.array(total_rewards[game_count - every : game_count])
+                    == self.win_reward
                 )
-                print(
-                    f"draw_percent:{np.mean(np.array(total_rewards[game_count-every:game_count])==self.draw_reward)}"
+                draw_percent = np.mean(
+                    np.array(total_rewards[game_count - every : game_count])
+                    == self.draw_reward
                 )
-                print(
-                    f"loss_percent:{np.mean(np.array(total_rewards[game_count-every:game_count])==self.loss_reward)}"
+                loss_percent = np.mean(
+                    np.array(total_rewards[game_count - every : game_count])
+                    == self.loss_reward
                 )
-                print(
-                    f"error_percent:{np.mean(np.array(total_rewards[game_count-every:game_count])==self.error_reward)}"
+                error_percent = np.mean(
+                    np.array(total_rewards[game_count - every : game_count])
+                    == self.error_reward
                 )
-                print(
-                    f"policy_agent_loss:{policy_agent_loss},value_agent_loss:{value_agent_loss}"
+
+                writer.add_scalar(
+                    "Win/train", win_percent, game_count + (epoch_number * game_counts)
                 )
-                print("-" * 30)
+                writer.add_scalar(
+                    "Draw/train",
+                    draw_percent,
+                    game_count + (epoch_number * game_counts),
+                )
+                writer.add_scalar(
+                    "Loss/train",
+                    loss_percent,
+                    game_count + (epoch_number * game_counts),
+                )
+                writer.add_scalar(
+                    "Error/train",
+                    error_percent,
+                    game_count + (epoch_number * game_counts),
+                )
+                writer.add_scalar(
+                    "PolicyAgentLoss/train",
+                    policy_agent_loss,
+                    game_count + (epoch_number * game_counts),
+                )
+                writer.add_scalar(
+                    "ValueAgentLoss/train",
+                    value_agent_loss,
+                    game_count + (epoch_number * game_counts),
+                )
+
+                if verbose:
+                    print(f"win_percent:{win_percent}")
+                    print(f"draw_percent:{draw_percent}")
+                    print(f"loss_percent:{loss_percent}")
+                    print(f"error_percent:{error_percent}")
+                    print(
+                        f"policy_agent_loss:{policy_agent_loss},\nvalue_agent_loss:{value_agent_loss}"
+                    )
+                    print("-" * 30)
+
+        writer.flush()
+        writer.close()
 
     def predict(self, state):
         idx = torch.where(torch.sum(state.reshape(6, 7) == 0, axis=0) == 0)[0]
