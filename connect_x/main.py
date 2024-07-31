@@ -1,27 +1,22 @@
-from kaggle_environments import make, evaluate
+import argparse
+
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from tqdm import tqdm
-
-
-import random
+from kaggle_environments import make
 
 from connect_x.agents import Agent
-from connect_x.utils import get_outcomes, print_outcomes, seed_everything
+from connect_x.utils import benchmark_agent, seed_everything
 
 config = {"rows": 6, "columns": 7, "inarow": 4}
 env = make("connectx", config, debug=True)
-
 
 seed_everything(seed=42)
 
 
 def agent_max_reward(obs, config):
-    import numpy as np
     import random
+
+    import numpy as np
 
     def seed_everything(seed):
         random.seed(seed)
@@ -83,14 +78,6 @@ def agent_max_reward(obs, config):
     return int(max_reward_idx)
 
 
-def train_agent(agent, env, games, epochs=1, game_counts=1001, verbose=False):
-    for epoch in range(epochs):
-        random_number = np.arange(len(games))
-        np.random.shuffle(random_number)
-        for i in range(len(games)):
-            agent.env = env.train(games[random_number[i]])
-            agent.train(game_counts=1001, epoch_number=epoch, verbose=verbose)
-
 def agent_factory(agent):
     def agent_fn(obs, config):
         board = torch.Tensor(np.array(obs.board).reshape(1, -1))
@@ -100,19 +87,72 @@ def agent_factory(agent):
     return agent_fn
 
 
+def train_agent(
+    agent_name, agent, env, games, epochs=1, game_counts=1000, verbose=False
+):
+    for epoch in range(epochs):
+        random_number = np.arange(len(games))
+        np.random.shuffle(random_number)
+        for i in range(len(games)):
+            agent.env = env.train(games[random_number[i]])
+            agent.train(
+                game_counts=game_counts + 1,
+                epoch_number=epoch,
+                verbose=verbose,
+                tot_games=len(games) * game_counts,
+                round_index=i,
+            )
+
+        agent.save(f"models/{agent_name}_{epoch}")
+        print(f"Epoch: {epoch}\n")
+        benchmark_agent(agent_name, epoch, agent_factory(agent), n_rounds=100)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="ConnectX")
+    parser.add_argument(
+        "task", type=str, help="Task to perform", choices=["train", "test"]
+    )
+    parser.add_argument(
+        "--agent_name",
+        type=str,
+        default="agent_1",
+        help="Name of the agent to be saved",
+    )
+    parser.add_argument(
+        "--epoch", type=int, default=10, help="Number of epochs to train the agent"
+    )
+    parser.add_argument(
+        "--game_counts",
+        type=int,
+        default=1000,
+        help="Number of games to play in each epoch",
+    )
+    parser.add_argument(
+        "--verbose", type=bool, default=False, help="Print verbose logs"
+    )
+    return vars(parser.parse_args())
+
+
 if __name__ == "__main__":
 
-    # games=[['random',None],[None,"negamax"],[agent_max_reward,None],[None,'random'],["negamax",None],[None,agent_max_reward]]
-    games = [["random", None]]
+    opts = parse_args()
 
-    print(f"len(games):{len(games)}")
-    agent = Agent()
-    epochs = 5
-    agent = Agent()
-    train_agent(agent, env, games, epochs=epochs, game_counts=1001, verbose=False)
-
-    print("Agent vs Random")
-    test_agent = agent_factory(agent)
-    print_outcomes(get_outcomes(agent1=test_agent, agent2="random"))
-    print("Agent vs Agent")
-    print_outcomes(get_outcomes(agent1=test_agent, agent2=test_agent))
+    if opts["task"] == "train":
+        games = [["random", None], [None, "random"], [None, "negamax"], ["negamax", None]]
+        agent = Agent()
+        train_agent(
+            opts["agent_name"],
+            agent,
+            env,
+            games,
+            epochs=opts["epoch"],
+            game_counts=opts["game_counts"],
+            verbose=opts["verbose"],
+        )
+    elif opts["task"] == "test":
+        agent_test = Agent()
+        agent_test.load(f"models/{opts['agent_name']}_{opts['epoch']}")
+        benchmark_agent(
+            opts['agent_name'], opts['epoch'], agent_factory(agent_test), n_rounds=100, write=False
+        )

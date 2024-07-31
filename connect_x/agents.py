@@ -1,20 +1,17 @@
-from kaggle_environments import make, evaluate
+import base64
+import pickle
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
-
-writer = SummaryWriter()
-
-
-import random
-
+from tqdm import tqdm
 
 from connect_x.logger import get_logger
 
+writer = SummaryWriter()
 
 logger = get_logger(__name__)
 
@@ -106,12 +103,15 @@ class Agent(nn.Module):
         self,
         game_counts=1001,
         every=100,
-        switch=False,
         run_steps=4,
         epochs=5,
         epoch_number=0,
+        round_index=0,
+        tot_games=None,
         verbose=False,
     ):
+        if not tot_games:
+            tot_games = game_counts
 
         logger.info("Training")
         total_rewards = []
@@ -164,7 +164,7 @@ class Agent(nn.Module):
 
                 if (len(states) > run_steps) or (done and len(states) > 1):
 
-                    states_tensor = torch.Tensor(states)
+                    states_tensor = torch.Tensor(np.array(states))
 
                     self.valueagent.eval()
                     values = self.valueagent(states_tensor).detach().numpy()
@@ -196,7 +196,7 @@ class Agent(nn.Module):
                     for epoch in range(epochs):
 
                         self.policyagent.train()
-                        states_tensor = torch.Tensor(states)
+                        states_tensor = torch.Tensor(np.array(states))
                         self.policyoptimizer.zero_grad()
                         new_policys = self.policyagent(states_tensor)
                         action_one_hot = F.one_hot(
@@ -217,7 +217,7 @@ class Agent(nn.Module):
                         self.policyagent.eval()
 
                         self.valueagent.train()
-                        states_tensor = torch.Tensor(states)
+                        states_tensor = torch.Tensor(np.array(states))
                         self.valueoptimizer.zero_grad()
                         value_agent_loss = self.valueagent.loss_fn(
                             torch.Tensor(n_steps_targets),
@@ -260,13 +260,15 @@ class Agent(nn.Module):
                     == self.error_reward
                 )
 
-                writer.add_scalar(
-                    "Win/train", win_percent, game_count + (epoch_number * game_counts)
+                current_idx = (
+                    game_count + (epoch_number * tot_games) + round_index * game_counts
                 )
+                logger.info(f"current_idx:{current_idx}")
+                writer.add_scalar("Win/train", win_percent, current_idx)
                 writer.add_scalar(
                     "Draw/train",
                     draw_percent,
-                    game_count + (epoch_number * game_counts),
+                    current_idx,
                 )
                 writer.add_scalar(
                     "Loss/train",
@@ -276,18 +278,12 @@ class Agent(nn.Module):
                 writer.add_scalar(
                     "Error/train",
                     error_percent,
-                    game_count + (epoch_number * game_counts),
+                    current_idx,
                 )
                 writer.add_scalar(
-                    "PolicyAgentLoss/train",
-                    policy_agent_loss,
-                    game_count + (epoch_number * game_counts),
+                    "PolicyAgentLoss/train", policy_agent_loss, current_idx
                 )
-                writer.add_scalar(
-                    "ValueAgentLoss/train",
-                    value_agent_loss,
-                    game_count + (epoch_number * game_counts),
-                )
+                writer.add_scalar("ValueAgentLoss/train", value_agent_loss, current_idx)
 
                 if verbose:
                     print(f"win_percent:{win_percent}")
@@ -312,3 +308,17 @@ class Agent(nn.Module):
             action = np.argmax(action_pros)
 
         return int(action)
+
+    def save(self, path):
+        serialized_weights = pickle.dumps(self.state_dict())
+        encoded_weights = base64.b64encode(serialized_weights)
+        with open(path, mode="wb") as file:
+            file.write(encoded_weights)
+
+    def load(self, path):
+        with open(path) as file:
+            encoded_weights = file.read()
+        serialized_weights = base64.b64decode(encoded_weights)
+        loaded_weights = pickle.loads(serialized_weights)
+
+        self.load_state_dict(loaded_weights)

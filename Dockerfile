@@ -8,12 +8,12 @@ FROM python:3.9
 # Install system dependencies
 RUN apt-get update && \
     apt-get install -y \
-        git \
-        # python3.9 \
-        # python3-pip \
-        python3-opencv \
-        # python3.9-venv \
-        libglib2.0-0
+    git \
+    # python3.9 \
+    # python3-pip \
+    python3-opencv \
+    # python3.9-venv \
+    libglib2.0-0
 
 # RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1
 RUN mkdir /app
@@ -28,11 +28,11 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 RUN pip3 install torch torchvision torchaudio -f https://download.pytorch.org/whl/cu111/torch_stable.html
 
 RUN pip3 install numpy \
-                gymnasium \
-                wheel \
-                kaggle-environments \
-                tqdm \
-                tensorboard
+    gymnasium \
+    wheel \
+    kaggle-environments \
+    tqdm \
+    tensorboard
 
 # COPY ./requirements.txt .
 COPY pyproject.toml ./pyproject.toml
@@ -40,6 +40,6 @@ COPY connect_x ./connect_x
 
 RUN pip3 install -e .
 
-CMD ["python", "connect_x/main.py"]
+ENTRYPOINT [ "python", "connect_x/main.py" ]
 
 
