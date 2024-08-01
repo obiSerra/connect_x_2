@@ -90,22 +90,28 @@ def agent_factory(agent):
 def train_agent(
     agent_name, agent, env, games, epochs=1, game_counts=1000, verbose=False
 ):
+    updated_games = games
     for epoch in range(epochs):
-        random_number = np.arange(len(games))
+        random_number = np.arange(len(updated_games))
         np.random.shuffle(random_number)
-        for i in range(len(games)):
-            agent.env = env.train(games[random_number[i]])
+
+        for i in range(len(updated_games)):
+            print(f"Playing game {i + 1}/{len(updated_games)} - {str(updated_games[random_number[i]])}")
+            agent.env = env.train(updated_games[random_number[i]])
             agent.train(
                 game_counts=game_counts + 1,
                 epoch_number=epoch,
                 verbose=verbose,
-                tot_games=len(games) * game_counts,
+                tot_games=len(updated_games) * game_counts,
                 round_index=i,
             )
 
         agent.save(f"models/{agent_name}_{epoch}")
         print(f"Epoch: {epoch}\n")
         benchmark_agent(agent_name, epoch, agent_factory(agent), n_rounds=100)
+
+        updated_games = games + [[agent_factory(agent), None], [None, agent_factory(agent)]]
+
 
 
 def parse_args():
@@ -139,7 +145,8 @@ if __name__ == "__main__":
     opts = parse_args()
 
     if opts["task"] == "train":
-        games = [["random", None], [None, "random"], [None, "negamax"], ["negamax", None]]
+        # games = [["random", None], [None, "random"], [None, "negamax"], ["negamax", None]]
+        games = [["random", None], [None, "random"]]
         agent = Agent()
         train_agent(
             opts["agent_name"],

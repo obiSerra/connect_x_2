@@ -31,6 +31,12 @@ class PolicyAgent(nn.Module):
             nn.BatchNorm1d(2 * self.embed_dim),
             nn.Dropout(0.1),
             nn.ReLU(),
+            
+            nn.Linear(2 * self.embed_dim, 2 * self.embed_dim),
+            nn.BatchNorm1d(2 * self.embed_dim),
+            nn.Dropout(0.1),
+            nn.ReLU(),
+
             nn.Linear(2 * self.embed_dim, self.output_dim),
         )
 
@@ -54,6 +60,12 @@ class ValueAgent(nn.Module):
             nn.BatchNorm1d(2 * self.embed_dim),
             nn.Dropout(0.1),
             nn.ReLU(),
+            
+            nn.Linear(2 * self.embed_dim, 2 * self.embed_dim),
+            nn.BatchNorm1d(2 * self.embed_dim),
+            nn.Dropout(0.1),
+            nn.ReLU(),
+            
             nn.Linear(2 * self.embed_dim, self.output_dim),
         )
 
