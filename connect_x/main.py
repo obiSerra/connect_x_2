@@ -5,7 +5,7 @@ import torch
 from kaggle_environments import make
 
 from connect_x.agents import Agent
-from connect_x.utils import benchmark_agent, seed_everything
+from connect_x.utils import benchmark_agent, get_outcomes, print_outcomes, seed_everything
 
 config = {"rows": 6, "columns": 7, "inarow": 4}
 env = make("connectx", config, debug=True)
@@ -110,7 +110,7 @@ def train_agent(
         print(f"Epoch: {epoch}\n")
         benchmark_agent(agent_name, epoch, agent_factory(agent), n_rounds=100)
 
-        updated_games = games + [[agent_factory(agent), None], [None, agent_factory(agent)]]
+        updated_games = games[2:] + [[agent_factory(agent), None], [None, agent_factory(agent)]]
 
 
 
@@ -127,6 +127,15 @@ def parse_args():
     )
     parser.add_argument(
         "--epoch", type=int, default=10, help="Number of epochs to train the agent"
+    )
+    parser.add_argument(
+        "--agent_2_name",
+        type=str,
+        default="random",
+        help="Name of the agent to used for testing",
+    )
+    parser.add_argument(
+        "--epoch_2", type=int, default=0, help="Agent version for testing"
     )
     parser.add_argument(
         "--game_counts",
@@ -160,6 +169,12 @@ if __name__ == "__main__":
     elif opts["task"] == "test":
         agent_test = Agent()
         agent_test.load(f"models/{opts['agent_name']}_{opts['epoch']}")
-        benchmark_agent(
-            opts['agent_name'], opts['epoch'], agent_factory(agent_test), n_rounds=100, write=False
-        )
+        # benchmark_agent(
+        #     opts['agent_name'], opts['epoch'], agent_factory(agent_test), n_rounds=100, write=False
+        # )
+
+        agent_test_2 = Agent()
+        agent_test_2.load(f"models/{opts['agent_2_name']}_{opts['epoch_2']}")
+        print(f"Agent {opts['agent_name']} - {opts['epoch']} vs Agent {opts['agent_2_name']} - {opts['epoch_2']}")
+        outcomes = get_outcomes(agent_factory(agent_test), agent_factory(agent_test_2), 100)
+        print_outcomes(outcomes)
